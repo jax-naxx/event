@@ -1,0 +1,227 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.Timer;
+import java.util.TimerTask;
+
+public class GameOfLifeGUI extends JFrame {
+    private static final int ROWS = 20;   // 网格的行数
+    private static final int COLS = 20;   // 网格的列数
+    private JButton[][] buttons = new JButton[ROWS][COLS]; // 用按钮表示网格的每个细胞
+    private int[][] board = new int[ROWS][COLS]; // 当前的网格状态
+    private boolean gameStarted = false;  // 游戏是否开始标志
+    private boolean gamePaused = false;   // 游戏是否暂停标志
+    private Timer timer; // 用于更新状态的定时器
+
+    // 构造方法
+    public GameOfLifeGUI() {
+        setTitle("生命游戏");
+        setSize(600, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        Container container = getContentPane();
+        container.setLayout(new BorderLayout());
+
+        // 控制面板
+        JPanel controlPanel = new JPanel();
+        controlPanel.setLayout(new FlowLayout());
+
+        // 开始/暂停按钮
+        JButton startPauseButton = new JButton("开始");
+        startPauseButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (gamePaused) {
+                    // 如果游戏暂停，恢复游戏
+                    gamePaused = false;
+                    startPauseButton.setText("暂停");
+                    System.out.println("游戏恢复!");
+                    startGame(); // 恢复定时器
+                } else {
+                    // 如果游戏正在进行，暂停游戏
+                    gamePaused = true;
+                    startPauseButton.setText("开始");
+                    System.out.println("游戏暂停!");
+                    stopGame(); // 停止定时器
+                }
+            }
+        });
+
+        // 清空按钮
+        JButton clearButton = new JButton("清空");
+        clearButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                clearBoard();  // 清空网格
+            }
+        });
+
+        // 向控制面板添加按钮
+        controlPanel.add(startPauseButton);
+        controlPanel.add(clearButton);
+
+        // 添加控制面板到窗口
+        container.add(controlPanel, BorderLayout.NORTH);
+
+        // 创建游戏网格
+        JPanel gridPanel = new JPanel();
+        gridPanel.setLayout(new GridLayout(ROWS, COLS));
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                buttons[i][j] = new JButton();
+                buttons[i][j].setBackground(Color.WHITE);
+                buttons[i][j].setPreferredSize(new Dimension(25, 25));
+                buttons[i][j].addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        JButton source = (JButton) e.getSource();
+                        int row = -1, col = -1;
+                        for (int i = 0; i < ROWS; i++) {
+                            for (int j = 0; j < COLS; j++) {
+                                if (buttons[i][j] == source) {
+                                    row = i;
+                                    col = j;
+                                }
+                            }
+                        }
+                        // 切换细胞状态
+                        if (board[row][col] == 0) {
+                            board[row][col] = 1;
+                            buttons[row][col].setBackground(Color.BLACK);  // 活细胞
+                        } else {
+                            board[row][col] = 0;
+                            buttons[row][col].setBackground(Color.WHITE); // 死细胞
+                        }
+                    }
+                });
+                gridPanel.add(buttons[i][j]);
+            }
+        }
+
+        // 添加网格面板到窗口
+        container.add(gridPanel, BorderLayout.CENTER);
+
+        // 监听键盘输入事件
+        addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                // 按下 P 键暂停/恢复游戏
+                if (e.getKeyCode() == KeyEvent.VK_P) {
+                    if (gamePaused) {
+                        gamePaused = false;
+                        System.out.println("游戏恢复!");
+                        startGame(); // 恢复定时器
+                    } else {
+                        gamePaused = true;
+                        System.out.println("游戏暂停!");
+                        stopGame(); // 停止定时器
+                    }
+                }
+                // 按下 R 键重置网格
+                if (e.getKeyCode() == KeyEvent.VK_R) {
+                    clearBoard();  // 清空网格
+                    System.out.println("网格已重置!");
+                }
+                // 按下 Enter 键更新一次游戏状态
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    updateBoard();  // 更新一次状态
+                }
+            }
+        });
+
+        setFocusable(true);  // 启用键盘输入
+    }
+
+    // 启动定时器开始更新游戏状态
+    private void startGame() {
+        if (timer == null) {
+            timer = new Timer();
+            timer.scheduleAtFixedRate(new TimerTask() {
+                @Override
+                public void run() {
+                    if (!gamePaused) {
+                        updateBoard();
+                    }
+                }
+            }, 0, 500);  // 每500毫秒更新一次
+        }
+    }
+
+    // 停止定时器
+    private void stopGame() {
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+    }
+
+    // 计算邻居活细胞的数量
+    public int countLiveNeighbors(int row, int col) {
+        int count = 0;
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                if (i == 0 && j == 0) continue; // 排除自己
+                int newRow = row + i;
+                int newCol = col + j;
+                if (newRow >= 0 && newRow < ROWS && newCol >= 0 && newCol < COLS) {
+                    count += board[newRow][newCol];
+                }
+            }
+        }
+        return count;
+    }
+
+    // 更新网格状态
+    public void updateBoard() {
+        int[][] newBoard = new int[ROWS][COLS];
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                int liveNeighbors = countLiveNeighbors(i, j);
+                if (board[i][j] == 1) {
+                    // 规则2：活细胞的生存规则
+                    newBoard[i][j] = (liveNeighbors == 2 || liveNeighbors == 3) ? 1 : 0;
+                } else {
+                    // 规则1：死细胞的诞生规则
+                    newBoard[i][j] = (liveNeighbors == 3) ? 1 : 0;
+                }
+            }
+        }
+
+        // 更新网格状态并刷新界面
+        board = newBoard;
+
+        // 更新界面上的按钮颜色
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                if (board[i][j] == 1) {
+                    buttons[i][j].setBackground(Color.BLACK);  // 活细胞
+                } else {
+                    buttons[i][j].setBackground(Color.WHITE); // 死细胞
+                }
+            }
+        }
+    }
+
+    // 清空网格
+    public void clearBoard() {
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                board[i][j] = 0;  // 重置为死细胞
+                buttons[i][j].setBackground(Color.WHITE); // 设置为白色
+            }
+        }
+        gameStarted = false;
+        gamePaused = false;
+        System.out.println("网格已清空！");
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new GameOfLifeGUI().setVisible(true);
+            }
+        });
+    }
+}
